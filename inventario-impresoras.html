@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Inventario Impresoras · SSAN</title>
+<meta name="description" content="Inventario de impresoras Hospital Dr. Dino Stagno Maccioni — Servicio de Salud Araucania Norte">
+<style>
+:root {
+  --bg:#0d1117; --surface:#161b22; --border:#21262d;
+  --accent:#00b4d8; --accent2:#0077b6;
+  --success:#2ea043; --warn:#d29922; --danger:#f85149;
+  --text:#e6edf3; --muted:#7d8590; --radius:10px;
+  --font:'Segoe UI',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;font-size:15px;}
+
+/* HEADER */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;align-items:center;gap:12px;position:sticky;top:0;z-index:100;}
+.logo{width:36px;height:36px;background:var(--accent2);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+header h1{font-size:16px;font-weight:600;line-height:1.2;}
+header small{color:var(--muted);font-size:11px;}
+.sync-btn{margin-left:auto;background:var(--accent2);border:none;border-radius:7px;color:#fff;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;transition:opacity .2s;white-space:nowrap;}
+.sync-btn:hover{opacity:.85;}
+.sync-btn:disabled{opacity:.4;cursor:default;}
+
+/* TABS */
+nav.tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);}
+nav.tabs button{flex:1;padding:12px 6px;background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);font-size:13px;font-weight:500;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;gap:5px;}
+nav.tabs button.active{color:var(--accent);border-bottom-color:var(--accent);}
+
+/* MAIN */
+main{padding:18px;max-width:680px;margin:0 auto;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+/* FORM */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+@media(max-width:500px){.form-grid{grid-template-columns:1fr;}}
+.field{display:flex;flex-direction:column;gap:5px;}
+.field.full{grid-column:1/-1;}
+label{font-size:12px;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:.05em;}
+input,select,textarea{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:10px 12px;font-size:14px;font-family:var(--font);width:100%;transition:border-color .2s;text-transform:uppercase;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);}
+select option{background:var(--bg);}
+textarea{resize:vertical;min-height:72px;}
+
+/* SUCCESS BANNER */
+#success-banner{display:none;background:rgba(46,160,67,.15);border:1px solid var(--success);border-radius:var(--radius);padding:16px;margin-bottom:18px;text-align:center;}
+#success-banner.show{display:block;}
+#success-banner .icon{font-size:32px;margin-bottom:6px;}
+#success-banner p{color:#3fb950;font-weight:600;font-size:15px;}
+#success-banner small{color:var(--muted);font-size:12px;}
+
+/* BUTTONS */
+.btn-row{display:flex;gap:10px;margin-top:20px;}
+.btn{flex:1;padding:13px;border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;transition:opacity .2s;}
+.btn:hover{opacity:.85;}
+.btn-primary{background:var(--accent2);color:#fff;}
+.btn-ghost{background:var(--surface);color:var(--text);border:1px solid var(--border);}
+
+/* BADGES */
+.badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:600;}
+.badge-ok{background:rgba(46,160,67,.2);color:#3fb950;}
+.badge-fault{background:rgba(248,81,73,.2);color:#f85149;}
+.badge-off{background:rgba(125,133,144,.2);color:#7d8590;}
+
+/* LIST */
+.list-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.count-pill{background:var(--accent2);color:#fff;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:700;}
+.search-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);padding:9px 12px;font-size:13px;width:100%;margin-bottom:14px;}
+.search-box:focus{outline:none;border-color:var(--accent);}
+.printer-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;margin-bottom:10px;cursor:pointer;transition:border-color .2s;}
+.printer-card:hover{border-color:var(--accent2);}
+.card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.card-title{font-size:14px;font-weight:600;}
+.card-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+.card-meta{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+.meta-chip{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:11px;color:var(--muted);}
+.meta-chip span{color:var(--text);}
+.dot-pending{width:8px;height:8px;border-radius:50%;background:var(--warn);flex-shrink:0;margin-top:4px;}
+.dot-synced{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0;margin-top:4px;}
+
+/* STATS */
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px;}
+@media(min-width:500px){.stats-grid{grid-template-columns:repeat(4,1fr);}}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px;text-align:center;}
+.stat-num{font-size:28px;font-weight:700;line-height:1;}
+.stat-lbl{font-size:11px;color:var(--muted);margin-top:5px;}
+
+/* TOAST */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:#1c2128;border:1px solid var(--border);border-radius:10px;padding:12px 20px;font-size:13px;z-index:999;transition:transform .3s;white-space:nowrap;max-width:90vw;}
+#toast.show{transform:translateX(-50%) translateY(0);}
+#toast.ok{border-color:var(--success);color:#3fb950;}
+#toast.err{border-color:var(--danger);color:#f85149;}
+#toast.info{border-color:var(--accent);color:var(--accent);}
+
+/* MODAL */
+.modal-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;align-items:center;justify-content:center;padding:18px;}
+.modal-backdrop.open{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;width:100%;max-width:480px;max-height:90vh;overflow-y:auto;}
+.modal h2{font-size:16px;margin-bottom:16px;}
+.detail-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;}
+.detail-row:last-child{border:none;}
+.detail-row .lbl{color:var(--muted);}
+
+/* CONFIG */
+.cfg-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:14px;}
+.cfg-box h3{font-size:13px;color:var(--muted);margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em;}
+code{background:var(--bg);padding:2px 6px;border-radius:4px;font-size:12px;color:var(--accent);}
+
+/* EMPTY */
+.empty{text-align:center;padding:48px 20px;color:var(--muted);}
+.empty .icon{font-size:40px;margin-bottom:12px;}
+.empty p{font-size:14px;}
+
+/* OFFLINE */
+#offline-banner{background:rgba(210,153,34,.15);border-bottom:1px solid var(--warn);color:var(--warn);text-align:center;font-size:12px;padding:6px;display:none;}
+body.offline #offline-banner{display:block;}
+</style>
+</head>
+<body>
+
+<div id="offline-banner">⚠️ Sin conexión — los registros se guardan localmente</div>
+
+<header>
+  <div class="logo">🖨️</div>
+  <div>
+    <h1>Inventario Impresoras</h1>
+    <small>Hospital Dr. Dino Stagno · SSAN</small>
+  </div>
+  <button class="sync-btn" id="sync-btn" onclick="syncAll()">
+    <span id="sync-icon">☁️</span><span id="sync-label">Sincronizar</span>
+  </button>
+</header>
+
+<nav class="tabs">
+  <button class="active" onclick="showTab('registro',this)">✏️ Registrar</button>
+  <button onclick="showTab('lista',this)">📋 Lista</button>
+  <button onclick="showTab('resumen',this)">📊 Resumen</button>
+  <button onclick="showTab('config',this)">⚙️ Config</button>
+</nav>
+
+<main>
+
+<!-- TAB REGISTRO -->
+<div id="tab-registro" class="panel active">
+
+  <!-- Banner de éxito -->
+  <div id="success-banner">
+    <div class="icon">✅</div>
+    <p id="success-msg">Impresora registrada correctamente</p>
+    <small id="success-sub"></small>
+  </div>
+
+  <div class="form-grid">
+    <div class="field full">
+      <label>N° Inventario</label>
+      <input id="f-inventario" type="text" placeholder="Ej: INV-0001, HOS-042…">
+    </div>
+    <div class="field">
+      <label>Marca</label>
+      <select id="f-marca" onchange="updateModelos()">
+        <option value="">Seleccionar…</option>
+        <option>HP</option><option>Epson</option><option>Canon</option>
+        <option>Brother</option><option>Samsung</option><option>Lexmark</option>
+        <option>Kyocera</option><option>Ricoh</option><option>Xerox</option>
+        <option>Otra</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Modelo</label>
+      <select id="f-modelo" disabled>
+        <option value="">— Elige marca primero —</option>
+      </select>
+      <input id="f-modelo-otro" type="text" placeholder="Escribe el modelo…" style="display:none;margin-top:6px;">
+    </div>
+    <div class="field full">
+      <label>Ubicación / Departamento</label>
+      <input id="f-ubicacion" type="text" placeholder="Ej: Policlínico, Admisión, SOME…">
+    </div>
+    <div class="field">
+      <label>Estado</label>
+      <select id="f-estado">
+        <option value="operativa">✅ Operativa</option>
+        <option value="falla">❌ En falla</option>
+        <option value="fuera_uso">⛔ Fuera de uso</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Tipo</label>
+      <select id="f-tipo">
+        <option value="laser_byn">Láser B/N</option>
+        <option value="laser_color">Láser Color</option>
+        <option value="inkjet">Inkjet</option>
+        <option value="multifuncional">Multifuncional</option>
+        <option value="plotter">Plotter</option>
+        <option value="otro">Otro</option>
+      </select>
+    </div>
+    <div class="field full">
+      <label>Responsable del equipo</label>
+      <input id="f-responsable" type="text" placeholder="Nombre del funcionario a cargo">
+    </div>
+    <div class="field full">
+      <label>Observaciones</label>
+      <textarea id="f-obs" placeholder="Estado físico, fallas conocidas, necesita tóner, etc."></textarea>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <button class="btn btn-ghost" onclick="clearForm()">🗑 Limpiar</button>
+    <button class="btn btn-primary" onclick="saveRecord()">💾 Guardar registro</button>
+  </div>
+</div>
+
+<!-- TAB LISTA -->
+<div id="tab-lista" class="panel">
+  <div class="list-header">
+    <b>Registros locales</b>
+    <span class="count-pill" id="count-pill">0</span>
+  </div>
+  <input class="search-box" id="search-input" placeholder="🔍 Buscar por marca, modelo, ubicación…" oninput="renderList()">
+  <div id="printer-list"></div>
+</div>
+
+<!-- TAB RESUMEN -->
+<div id="tab-resumen" class="panel">
+  <div class="stats-grid" id="stats-grid"></div>
+  <div id="dept-list"></div>
+  <div style="margin-top:14px;">
+    <button class="btn btn-ghost" style="width:100%" onclick="exportCSV()">⬇️ Exportar CSV local</button>
+  </div>
+</div>
+
+<!-- TAB CONFIG -->
+<div id="tab-config" class="panel">
+  <div class="cfg-box">
+    <h3>Google Sheets — URL del Script</h3>
+    <div class="field" style="margin-bottom:12px;">
+      <label>URL del Google Apps Script</label>
+      <input id="cfg-script-url" type="text" placeholder="https://script.google.com/macros/s/…/exec">
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveConfig()">Guardar URL</button>
+  </div>
+
+  <div class="cfg-box">
+    <h3>Código para Apps Script</h3>
+    <pre style="background:var(--bg);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#7ee787;line-height:1.6;white-space:pre-wrap;">function doGet(e) {
+  try {
+    var sheet = SpreadsheetApp
+      .getActiveSpreadsheet()
+      .getSheetByName("Impresoras");
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(["ID","Fecha","Hora","Marca","Modelo",
+        "Ubicacion","Estado","Tipo","Responsable","Observaciones","Dispositivo"]);
+    }
+    var p = e.parameter;
+    sheet.appendRow([p.id||'',p.fecha||'',p.hora||'',p.marca||'',
+      p.modelo||'',p.ubicacion||'',p.estado||'',p.tipo||'',
+      p.responsable||'',p.obs||'',p.device||'App']);
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:true}))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ok:false,error:err.message}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}</pre>
+  </div>
+
+  <div class="cfg-box">
+    <h3>⚠️ Zona de peligro</h3>
+    <button class="btn" style="background:rgba(248,81,73,.15);color:#f85149;border:1px solid #f85149;width:100%" onclick="clearAllData()">🗑 Borrar todos los registros locales</button>
+  </div>
+</div>
+
+</main>
+
+<!-- MODAL DETALLE -->
+<div class="modal-backdrop" id="modal-bg" onclick="closeModal(event)">
+  <div class="modal">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 id="modal-title">Detalle impresora</h2>
+      <button onclick="closeModalDirect()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer;">✕</button>
+    </div>
+    <div id="modal-body"></div>
+    <div class="btn-row" style="margin-top:18px;">
+      <button class="btn btn-ghost" onclick="deleteRecord()">🗑 Eliminar</button>
+      <button class="btn btn-primary" onclick="closeModalDirect()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════
+// MODELOS POR MARCA
+// ═══════════════════════════════════════
+const MODELOS = {
+  'HP': [
+    'LaserJet P1102w','LaserJet 107a','LaserJet 107w',
+    'LaserJet Pro M15w','LaserJet Pro M28w','LaserJet Pro M102w',
+    'LaserJet Pro M104a','LaserJet Pro M118dw','LaserJet Pro M203dw',
+    'LaserJet Pro M227fdw','LaserJet Pro M254dw','LaserJet Pro M281fdw',
+    'LaserJet Pro M303dn','LaserJet Pro M304a','LaserJet Pro M404dn',
+    'LaserJet Pro M404dw','LaserJet Pro M428fdw','LaserJet Pro M501dn',
+    'LaserJet Enterprise M506dn','LaserJet Enterprise M507dn',
+    'LaserJet Enterprise M608dn','LaserJet Enterprise M610dn',
+    'LaserJet Enterprise M611dn','LaserJet Enterprise M612dn',
+    'Color LaserJet Pro M154nw','Color LaserJet Pro M254nw',
+    'Color LaserJet Pro M281fdw','Color LaserJet Pro M452dn',
+    'Color LaserJet Pro M454dn','Color LaserJet Pro M479fdw',
+    'Color LaserJet Enterprise M553dn','Color LaserJet Enterprise M652dn',
+    'OfficeJet Pro 6970','OfficeJet Pro 7740','OfficeJet Pro 8025',
+    'OfficeJet Pro 9010','OfficeJet Pro 9020','OfficeJet Pro 9025',
+    'DeskJet 2720','DeskJet Ink Advantage 3775','Otro modelo HP'
+  ],
+  'Epson': [
+    'EcoTank L1110','EcoTank L3110','EcoTank L3150','EcoTank L3250',
+    'EcoTank L4150','EcoTank L4260','EcoTank L5190','EcoTank L5290',
+    'EcoTank L6170','EcoTank L6270','EcoTank L6490','EcoTank L14150',
+    'WorkForce Pro WF-3720','WorkForce Pro WF-4730','WorkForce Pro WF-4740',
+    'WorkForce Pro WF-7210','WorkForce Pro WF-7710','WorkForce Pro WF-7720',
+    'WorkForce WF-2830','WorkForce WF-2850',
+    'AL-M220DN','AL-M310DN','AL-M320DN','AL-M8100DN','Otro modelo Epson'
+  ],
+  'Canon': [
+    'PIXMA G1100','PIXMA G2100','PIXMA G3100','PIXMA G4100',
+    'PIXMA G1410','PIXMA G2410','PIXMA G3410','PIXMA G4410',
+    'PIXMA MG2510','PIXMA MG3610','PIXMA MG5710',
+    'PIXMA TS3110','PIXMA TS5110','PIXMA TS6110','PIXMA TS8110',
+    'imageCLASS MF113w','imageCLASS MF232w','imageCLASS MF244dw',
+    'imageCLASS MF267dw','imageCLASS MF269dw','imageCLASS MF416dw',
+    'imageCLASS MF426dw','imageCLASS MF525dw','imageCLASS MF735Cdw',
+    'imageCLASS LBP162dw','imageCLASS LBP214dw','imageCLASS LBP312dn',
+    'imageRUNNER 1643i','imageRUNNER ADVANCE C3525i','Otro modelo Canon'
+  ],
+  'Brother': [
+    'HL-1202','HL-1212W','HL-1610W','HL-1810W','HL-2320D','HL-2360DW',
+    'HL-L2320D','HL-L2350DW','HL-L2360DW','HL-L2370DW','HL-L2375DW',
+    'HL-L3210CW','HL-L3230CDW','HL-L3270CDW',
+    'HL-L5000D','HL-L5200DW','HL-L5200DWT','HL-L6200DW','HL-L6200DWT','HL-L6400DW',
+    'HL-L8260CDW','HL-L8360CDW','HL-L9310CDW',
+    'DCP-1617NW','DCP-L2520DW','DCP-L2540DW','DCP-L2550DW',
+    'DCP-L3510CDW','DCP-L3550CDW','DCP-L5600DN','DCP-L6600DW','DCP-L8410CDW',
+    'MFC-L2700DW','MFC-L2720DW','MFC-L2740DW',
+    'MFC-L3710CW','MFC-L3730CDN','MFC-L3750CDW','MFC-L3760CDW','MFC-L3770CDW',
+    'MFC-L5700DW','MFC-L5750DW','MFC-L6800DW','MFC-L6900DW',
+    'MFC-L8690CDW','MFC-L8900CDW','MFC-L9570CDW','Otro modelo Brother'
+  ],
+  'Samsung': [
+    'Xpress M2020W','Xpress M2022W','Xpress M2070W','Xpress M2070FW',
+    'Xpress M2620ND','Xpress M2670FN','Xpress M3320ND','Xpress M3370FD',
+    'Xpress M3820DW','Xpress M3870FW','Xpress M4070FR','Xpress M4080FX',
+    'Xpress C430W','Xpress C480W','Xpress C480FW',
+    'ProXpress M3015DW','ProXpress M3375FD','ProXpress M4025ND','Otro modelo Samsung'
+  ],
+  'Lexmark': [
+    'B2236dw','B2338dw','B2442dw','B2546dw','B2650dw',
+    'MB2236adw','MB2338adw','MB2442adwe','MB2546adwe','MB2650adwe',
+    'CS421dn','CS431dw','CS521dn','CS622de',
+    'CX421adn','CX522ade','CX622ade','CX725de',
+    'MS321dn','MS421dn','MS521dn','MS621dn','MS821dn',
+    'MX321adn','MX421ade','MX521ade','MX621ade','MX821ade','Otro modelo Lexmark'
+  ],
+  'Kyocera': [
+    'ECOSYS P2040dw','ECOSYS P2235dw','ECOSYS P3045dn','ECOSYS P3050dn',
+    'ECOSYS P5021cdw','ECOSYS P5026cdw','ECOSYS P6130cdn','ECOSYS P6230cdn',
+    'ECOSYS M2035dn','ECOSYS M2040dn','ECOSYS M2135dn','ECOSYS M2540dn',
+    'ECOSYS M2635dn','ECOSYS M2640idw','ECOSYS M2735dw','ECOSYS M2740dw',
+    'ECOSYS M3040dn','ECOSYS M3145dn','ECOSYS M3540dn','ECOSYS M3645dn',
+    'ECOSYS M5521cdn','ECOSYS M5526cdn','ECOSYS M6230cidn','ECOSYS M6630cidn',
+    'TASKalfa 2552ci','TASKalfa 3252ci','TASKalfa 4002i','TASKalfa 5002i','Otro modelo Kyocera'
+  ],
+  'Ricoh': [
+    'SP 150w','SP 211','SP 213w','SP 310DN','SP 330SN','SP 377DNwX',
+    'SP 4510DN','SP 4520DN','SP C250DN','SP C252DN','SP C342DN',
+    'IM 430F','IM 550F','IM 600F','IM 2702','IM 3000','IM 4000','IM 5000',
+    'MP 301SP','MP 305+SP','MP 501SP','MP 601SP',
+    'MP C307SP','MP C407SP','MP C2004SP','MP C3004SP','Otro modelo Ricoh'
+  ],
+  'Xerox': [
+    'Phaser 3020','Phaser 3052','Phaser 3260','Phaser 6510',
+    'WorkCentre 3215','WorkCentre 3225','WorkCentre 3315','WorkCentre 3325',
+    'WorkCentre 3615','WorkCentre 3655','WorkCentre 5024','WorkCentre 6515',
+    'VersaLink B400','VersaLink B405','VersaLink B600','VersaLink B605',
+    'VersaLink C400','VersaLink C405','VersaLink C500','VersaLink C505',
+    'AltaLink B8045','AltaLink B8055','AltaLink C8030','AltaLink C8035','Otro modelo Xerox'
+  ],
+  'Otra': ['Especificar modelo manualmente']
+};
+
+function updateModelos() {
+  const marca = document.getElementById('f-marca').value;
+  const sel   = document.getElementById('f-modelo');
+  const input = document.getElementById('f-modelo-otro');
+  const lista = MODELOS[marca];
+
+  sel.innerHTML = '';
+  input.style.display = 'none';
+  input.value = '';
+
+  if (!marca || !lista) {
+    sel.innerHTML = '<option value="">— Elige marca primero —</option>';
+    sel.disabled = true;
+    return;
+  }
+
+  if (marca === 'Otra') {
+    sel.style.display = 'none';
+    sel.disabled = true;
+    input.style.display = 'block';
+    input.placeholder = 'Escribe marca y modelo…';
+    return;
+  }
+
+  sel.style.display = 'block';
+  sel.disabled = false;
+  sel.innerHTML = '<option value="">Seleccionar modelo…</option>' +
+    lista.map(m => '<option value="'+m+'">'+m+'</option>').join('');
+
+  sel.onchange = function() {
+    const v = sel.value;
+    if (v.startsWith('Otro modelo') || v === 'Especificar modelo manualmente') {
+      input.style.display = 'block';
+      input.placeholder = 'Escribe el modelo exacto…';
+      input.focus();
+    } else {
+      input.style.display = 'none';
+      input.value = '';
+    }
+  };
+}
+
+// ═══════════════════════════════════════
+// DB (localStorage)
+// ═══════════════════════════════════════
+const DB_KEY  = 'ssan_impresoras_v2';
+const CFG_KEY = 'ssan_cfg_v1';
+
+function loadDB()  { try { return JSON.parse(localStorage.getItem(DB_KEY)  || '[]');  } catch { return []; } }
+function saveDB(d) { localStorage.setItem(DB_KEY,  JSON.stringify(d)); }
+function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}');  } catch { return {}; } }
+function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
+
+window.addEventListener('DOMContentLoaded', () => {
+  const cfg = loadCfg();
+  if (cfg.scriptUrl) document.getElementById('cfg-script-url').value = cfg.scriptUrl;
+  renderList();
+  renderStats();
+  checkOnline();
+});
+window.addEventListener('online',  checkOnline);
+window.addEventListener('offline', checkOnline);
+function checkOnline() {
+  document.body.classList.toggle('offline', !navigator.onLine);
+}
+
+// ═══════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════
+function showTab(id, btn) {
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+  if (id === 'lista')   renderList();
+  if (id === 'resumen') renderStats();
+}
+
+// ═══════════════════════════════════════
+// FORMULARIO
+// ═══════════════════════════════════════
+function clearForm() {
+  // Marca
+  document.getElementById('f-marca').value = '';
+  // Modelo
+  const sel = document.getElementById('f-modelo');
+  sel.innerHTML = '<option value="">— Elige marca primero —</option>';
+  sel.disabled = true;
+  sel.style.display = 'block';
+  // Modelo otro
+  const inp = document.getElementById('f-modelo-otro');
+  inp.value = '';
+  inp.style.display = 'none';
+  // Resto de campos
+  document.getElementById('f-inventario').value = '';
+  document.getElementById('f-ubicacion').value  = '';
+  document.getElementById('f-estado').value     = 'operativa';
+  document.getElementById('f-tipo').value       = 'laser_byn';
+  document.getElementById('f-responsable').value= '';
+  document.getElementById('f-obs').value        = '';
+  // Ocultar banner de exito
+  document.getElementById('success-banner').classList.remove('show');
+}
+
+function saveRecord() {
+  const inventario = document.getElementById('f-inventario').value.trim();
+  const marca     = document.getElementById('f-marca').value.trim();
+  const selModelo = document.getElementById('f-modelo').value.trim();
+  const inpModelo = document.getElementById('f-modelo-otro').value.trim();
+  const modelo    = (selModelo.startsWith('Otro modelo') || selModelo === 'Especificar modelo manualmente' || !selModelo)
+                    ? inpModelo : selModelo;
+  const ubicacion  = document.getElementById('f-ubicacion').value.trim();
+  const estado     = document.getElementById('f-estado').value;
+  const tipo       = document.getElementById('f-tipo').value;
+  const responsable= document.getElementById('f-responsable').value.trim();
+  const obs        = document.getElementById('f-obs').value.trim();
+
+  if (!inventario){ toast('Ingresa el N° de Inventario', 'err'); return; }
+  if (!marca)     { toast('Selecciona una Marca', 'err'); return; }
+  if (!modelo)    { toast('Selecciona o escribe un Modelo', 'err'); return; }
+  if (!ubicacion) { toast('Escribe la Ubicacion / Departamento', 'err'); return; }
+
+  const now   = new Date();
+  const fecha = now.toLocaleDateString('es-CL');
+  const hora  = now.toLocaleTimeString('es-CL', {hour:'2-digit', minute:'2-digit'});
+
+  const record = {
+    id: 'IMP-'+Date.now()+'-'+Math.random().toString(36).slice(2,6).toUpperCase(),
+    inventario:  inventario.toUpperCase(),
+    fecha, hora,
+    marca:       marca.toUpperCase(),
+    modelo:      modelo.toUpperCase(),
+    ubicacion:   ubicacion.toUpperCase(),
+    estado,
+    tipo,
+    responsable: responsable.toUpperCase(),
+    obs:         obs.toUpperCase(),
+    synced: false,
+    device: /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent) ? 'Movil' : 'PC'
+  };
+
+  const db = loadDB();
+  db.push(record);
+  saveDB(db);
+
+  // Mostrar banner de exito
+  const banner = document.getElementById('success-banner');
+  document.getElementById('success-msg').textContent = marca + ' ' + modelo + ' — guardado correctamente';
+  document.getElementById('success-sub').textContent = ubicacion + ' · ' + fecha + ' ' + hora;
+  banner.classList.add('show');
+
+  clearForm(); // reutilizar funcion centralizada
+
+  // Re-mostrar banner (clearForm lo oculta, por eso se reasigna despues)
+  banner.classList.add('show');
+
+  renderList();
+  renderStats();
+
+  // Scroll al banner y desaparece solo en 3 segundos
+  banner.scrollIntoView({behavior:'smooth'});
+  setTimeout(function(){ banner.classList.remove('show'); }, 3000);
+}
+
+// ═══════════════════════════════════════
+// LISTA
+// ═══════════════════════════════════════
+function renderList() {
+  const db = loadDB();
+  document.getElementById('count-pill').textContent = db.length;
+  const q = (document.getElementById('search-input').value || '').toLowerCase();
+  const filtered = db.filter(r =>
+    (r.marca+r.modelo+r.ubicacion+r.responsable).toLowerCase().includes(q)
+  ).slice().reverse();
+
+  const cont = document.getElementById('printer-list');
+  if (!filtered.length) {
+    cont.innerHTML = '<div class="empty"><div class="icon">🖨️</div><p>'+(db.length?'Sin resultados.':'Sin registros aun. Ve a Registrar.')+'</p></div>';
+    return;
+  }
+
+  const emap = {operativa:['badge-ok','Operativa'],falla:['badge-fault','En falla'],fuera_uso:['badge-off','Fuera de uso']};
+  cont.innerHTML = filtered.map(r => {
+    const [cls,lbl] = emap[r.estado] || ['badge-ok',r.estado];
+    return '<div class="printer-card" onclick="openModal(\''+r.id+'\')">'+
+      '<div class="card-top">'+
+        '<div>'+
+          '<div class="card-title">'+r.marca+' '+r.modelo+'</div>'+'<div class="card-sub" style="font-size:11px;color:var(--accent);margin-top:1px;">N° '+r.inventario+'</div>'+
+          '<div class="card-sub">📍 '+r.ubicacion+'</div>'+
+        '</div>'+
+        '<div style="display:flex;align-items:center;gap:8px;">'+
+          '<span class="badge '+cls+'">'+lbl+'</span>'+
+          '<div class="'+(r.synced?'dot-synced':'dot-pending')+'" title="'+(r.synced?'Sincronizado':'Pendiente sync')+'"></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="card-meta">'+
+        (r.responsable?'<div class="meta-chip">👤 <span>'+r.responsable+'</span></div>':'')+
+        '<div class="meta-chip">🕒 <span>'+r.fecha+' '+r.hora+'</span></div>'+
+        '<div class="meta-chip">'+(r.synced?'☁️ <span>Sincronizado</span>':'⏳ <span>Local</span>')+'</div>'+
+      '</div>'+
+    '</div>';
+  }).join('');
+}
+
+// ═══════════════════════════════════════
+// MODAL DETALLE
+// ═══════════════════════════════════════
+let currentModalId = null;
+function openModal(id) {
+  currentModalId = id;
+  const r = loadDB().find(x => x.id === id);
+  if (!r) return;
+  const emap = {operativa:['badge-ok','Operativa'],falla:['badge-fault','En falla'],fuera_uso:['badge-off','Fuera de uso']};
+  const [cls,lbl] = emap[r.estado] || ['badge-ok',r.estado];
+  const tmap = {laser_byn:'Laser B/N',laser_color:'Laser Color',inkjet:'Inkjet',multifuncional:'Multifuncional',plotter:'Plotter',otro:'Otro'};
+  document.getElementById('modal-title').textContent = r.marca+' '+r.modelo;
+  document.getElementById('modal-body').innerHTML =
+    row('N° Inventario', r.inventario||'—')+
+    row('Estado','<span class="badge '+cls+'">'+lbl+'</span>')+
+    row('Tipo', tmap[r.tipo]||r.tipo)+
+    row('Ubicacion', r.ubicacion)+
+    row('Responsable', r.responsable||'—')+
+    row('Registrado', r.fecha+' '+r.hora)+
+    row('Dispositivo', r.device||'—')+
+    row('Sincronizado', r.synced?'☁️ Si':'⏳ Pendiente')+
+    (r.obs?'<div class="detail-row" style="flex-direction:column;gap:4px;"><span class="lbl">Observaciones</span><span style="font-size:13px">'+r.obs+'</span></div>':'');
+  document.getElementById('modal-bg').classList.add('open');
+}
+function row(l,v){ return '<div class="detail-row"><span class="lbl">'+l+'</span><span>'+v+'</span></div>'; }
+function closeModal(e){ if(e.target.id==='modal-bg') closeModalDirect(); }
+function closeModalDirect(){ document.getElementById('modal-bg').classList.remove('open'); currentModalId=null; }
+function deleteRecord(){
+  if(!currentModalId) return;
+  if(!confirm('¿Eliminar este registro?')) return;
+  saveDB(loadDB().filter(r=>r.id!==currentModalId));
+  closeModalDirect();
+  renderList();
+  renderStats();
+  toast('Registro eliminado','info');
+}
+
+// ═══════════════════════════════════════
+// STATS
+// ═══════════════════════════════════════
+function renderStats(){
+  const db=loadDB();
+  const tot=db.length, op=db.filter(r=>r.estado==='operativa').length,
+        fa=db.filter(r=>r.estado==='falla').length, ps=db.filter(r=>!r.synced).length;
+  document.getElementById('stats-grid').innerHTML=
+    scard(tot,'Total','var(--accent)')+scard(op,'Operativas','#3fb950')+
+    scard(fa,'En falla','#f85149')+scard(ps,'Sin sync','#e3b341');
+  const depts={};
+  db.forEach(r=>{ depts[r.ubicacion]=(depts[r.ubicacion]||0)+1; });
+  const sorted=Object.entries(depts).sort((a,b)=>b[1]-a[1]);
+  if(!sorted.length){ document.getElementById('dept-list').innerHTML='<div class="empty"><div class="icon">📊</div><p>Sin datos aun.</p></div>'; return; }
+  const max=sorted[0][1];
+  document.getElementById('dept-list').innerHTML=
+    '<div style="margin-bottom:10px;font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;">Por departamento</div>'+
+    sorted.map(([d,c])=>'<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:8px;">'+
+      '<div style="display:flex;justify-content:space-between;margin-bottom:6px;font-size:13px;"><span>'+d+'</span><b>'+c+'</b></div>'+
+      '<div style="background:var(--bg);border-radius:4px;height:6px;overflow:hidden;">'+
+      '<div style="background:var(--accent2);width:'+(c/max*100).toFixed(0)+'%;height:100%;border-radius:4px;"></div></div></div>'
+    ).join('');
+}
+function scard(n,l,c){ return '<div class="stat-card"><div class="stat-num" style="color:'+c+'">'+n+'</div><div class="stat-lbl">'+l+'</div></div>'; }
+
+// ═══════════════════════════════════════
+// EXPORT CSV
+// ═══════════════════════════════════════
+function exportCSV(){
+  const db=loadDB();
+  if(!db.length){ toast('No hay datos para exportar','err'); return; }
+  const cols=['ID','N Inventario','Fecha','Hora','Marca','Modelo','Ubicacion','Estado','Tipo','Responsable','Observaciones'];
+  const rows=db.map(r=>[r.id,r.inventario,r.fecha,r.hora,r.marca,r.modelo,r.ubicacion,r.estado,r.tipo,r.responsable,r.obs]
+    .map(v=>'"'+String(v||'').replace(/"/g,'""')+'"').join(','));
+  const csv='\uFEFF'+cols.join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='inventario_impresoras_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+  toast('CSV descargado','ok');
+}
+
+// ═══════════════════════════════════════
+// SYNC A GOOGLE SHEETS (form submit — funciona en movil y PC)
+// ═══════════════════════════════════════
+function enviarConForm(url) {
+  return new Promise(function(resolve) {
+    // Crear iframe oculto como destino del form
+    const iframeName = 'sync_frame_' + Date.now();
+    const iframe = document.createElement('iframe');
+    iframe.name = iframeName;
+    iframe.style.cssText = 'display:none;width:0;height:0;border:0;position:absolute;left:-9999px;';
+    document.body.appendChild(iframe);
+
+    // Crear form que apunta al iframe
+    const form = document.createElement('form');
+    form.method = 'GET';
+    form.action = url.split('?')[0];
+    form.target = iframeName;
+    form.style.display = 'none';
+
+    // Agregar parametros como inputs
+    const params = new URL(url).searchParams;
+    params.forEach(function(value, key) {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+
+    // Resolver despues de 4 segundos (tiempo para que el script procese)
+    setTimeout(function() {
+      try { document.body.removeChild(form); } catch(e) {}
+      try { document.body.removeChild(iframe); } catch(e) {}
+      resolve(true);
+    }, 4000);
+
+    form.submit();
+  });
+}
+
+async function syncAll(){
+  const cfg=loadCfg();
+  if(!cfg.scriptUrl){ toast('Configura primero la URL del Apps Script','err'); return; }
+  if(!navigator.onLine){ toast('Sin internet. Datos guardados localmente.','err'); return; }
+  const db=loadDB();
+  const pending=db.filter(r=>!r.synced);
+  if(!pending.length){ toast('Todo ya esta sincronizado','info'); return; }
+
+  const btn=document.getElementById('sync-btn');
+  const lbl=document.getElementById('sync-label');
+  const ico=document.getElementById('sync-icon');
+  btn.disabled=true;
+  ico.textContent='⏳';
+
+  let enviados=0;
+
+  for(let i=0;i<pending.length;i++){
+    lbl.textContent=(i+1)+'/'+pending.length;
+    const r=pending[i];
+    const url=cfg.scriptUrl+'?'+new URLSearchParams({
+      id:        r.id||'',
+      inventario:r.inventario||'',
+      fecha:     r.fecha||'',
+      hora:      r.hora||'',
+      marca:     r.marca||'',
+      modelo:    r.modelo||'',
+      ubicacion: r.ubicacion||'',
+      estado:    r.estado||'',
+      tipo:      r.tipo||'',
+      responsable: r.responsable||'',
+      obs:       r.obs||'',
+      device:    r.device||'App'
+    }).toString();
+
+    await enviarConForm(url);
+    enviados++;
+  }
+
+  // Marcar todos como sincronizados
+  const updated=db.map(r=>({...r,synced:true}));
+  saveDB(updated);
+  renderList();
+  renderStats();
+  toast('☁️ '+enviados+' registro(s) enviados a Sheets','ok');
+
+  btn.disabled=false;
+  lbl.textContent='Sincronizar';
+  ico.textContent='☁️';
+}
+// ═══════════════════════════════════════
+// CONFIG
+// ═══════════════════════════════════════
+function saveConfig(){
+  const url=document.getElementById('cfg-script-url').value.trim();
+  if(!url.startsWith('https://script.google.com')){ toast('URL invalida','err'); return; }
+  saveCfg({scriptUrl:url});
+  toast('URL guardada correctamente','ok');
+}
+function clearAllData(){
+  if(!confirm('¿Borrar TODOS los registros? No se puede deshacer.')) return;
+  saveDB([]);
+  renderList();
+  renderStats();
+  toast('Registros eliminados','info');
+}
+
+// ═══════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════
+let toastTimer;
+function toast(msg,type='info'){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>{ el.className=''; },3500);
+}
+</script>
+</body>
+</html>
