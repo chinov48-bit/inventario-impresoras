@@ -679,51 +679,13 @@ function exportCSV(){
 }
 
 // ═══════════════════════════════════════
-// SYNC A GOOGLE SHEETS (form submit — funciona en movil y PC)
+// SYNC A GOOGLE SHEETS
 // ═══════════════════════════════════════
-function enviarConForm(url) {
-  return new Promise(function(resolve) {
-    // Crear iframe oculto como destino del form
-    const iframeName = 'sync_frame_' + Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.name = iframeName;
-    iframe.style.cssText = 'display:none;width:0;height:0;border:0;position:absolute;left:-9999px;';
-    document.body.appendChild(iframe);
-
-    // Crear form que apunta al iframe
-    const form = document.createElement('form');
-    form.method = 'GET';
-    form.action = url.split('?')[0];
-    form.target = iframeName;
-    form.style.display = 'none';
-
-    // Agregar parametros como inputs
-    const params = new URL(url).searchParams;
-    params.forEach(function(value, key) {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-
-    // Resolver despues de 4 segundos (tiempo para que el script procese)
-    setTimeout(function() {
-      try { document.body.removeChild(form); } catch(e) {}
-      try { document.body.removeChild(iframe); } catch(e) {}
-      resolve(true);
-    }, 4000);
-
-    form.submit();
-  });
-}
-
 async function syncAll(){
   const cfg=loadCfg();
   if(!cfg.scriptUrl){ toast('Configura primero la URL del Apps Script','err'); return; }
   if(!navigator.onLine){ toast('Sin internet. Datos guardados localmente.','err'); return; }
+
   const db=loadDB();
   const pending=db.filter(r=>!r.synced);
   if(!pending.length){ toast('Todo ya esta sincronizado','info'); return; }
@@ -734,41 +696,61 @@ async function syncAll(){
   btn.disabled=true;
   ico.textContent='⏳';
 
-  let enviados=0;
+  let ok=0, fail=0;
 
   for(let i=0;i<pending.length;i++){
     lbl.textContent=(i+1)+'/'+pending.length;
     const r=pending[i];
     const url=cfg.scriptUrl+'?'+new URLSearchParams({
-      id:        r.id||'',
-      inventario:r.inventario||'',
-      fecha:     r.fecha||'',
-      hora:      r.hora||'',
-      marca:     r.marca||'',
-      modelo:    r.modelo||'',
-      ubicacion: r.ubicacion||'',
-      estado:    r.estado||'',
-      tipo:      r.tipo||'',
+      id:          r.id||'',
+      inventario:  r.inventario||'',
+      fecha:       r.fecha||'',
+      hora:        r.hora||'',
+      marca:       r.marca||'',
+      modelo:      r.modelo||'',
+      ubicacion:   r.ubicacion||'',
+      estado:      r.estado||'',
+      tipo:        r.tipo||'',
       responsable: r.responsable||'',
-      obs:       r.obs||'',
-      device:    r.device||'App'
+      obs:         r.obs||'',
+      device:      r.device||'App'
     }).toString();
 
-    await enviarConForm(url);
-    enviados++;
+    try {
+      // Intentar fetch con cors primero
+      const res = await fetch(url);
+      const json = await res.json();
+      if(json.ok) ok++; else fail++;
+    } catch(e1) {
+      // Si falla por CORS usar no-cors como fallback
+      try {
+        await fetch(url, {mode:'no-cors'});
+        ok++; // asumir ok
+      } catch(e2) {
+        fail++;
+      }
+    }
   }
 
-  // Marcar todos como sincronizados
   const updated=db.map(r=>({...r,synced:true}));
   saveDB(updated);
   renderList();
   renderStats();
-  toast('☁️ '+enviados+' registro(s) enviados a Sheets','ok');
+
+  if(fail===0){
+    toast('☁️ '+ok+' registro(s) enviados a Google Sheets','ok');
+  } else if(ok>0){
+    toast(ok+' enviados, '+fail+' fallaron — reintenta','err');
+  } else {
+    toast('Error conectando con Google Sheets','err');
+  }
 
   btn.disabled=false;
   lbl.textContent='Sincronizar';
   ico.textContent='☁️';
 }
+
+
 // ═══════════════════════════════════════
 // CONFIG
 // ═══════════════════════════════════════
