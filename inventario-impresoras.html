@@ -245,35 +245,46 @@ body.offline #offline-banner{display:block;}
       <input id="cfg-script-url" type="text" class="no-upper" placeholder="https://script.google.com/macros/s/…/exec">
     </div>
     <button class="btn btn-primary" style="width:100%" onclick="saveConfig()">Guardar URL</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="testConnection()">🔌 Probar conexión</button>
+    <button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="markAllPending()">↻ Marcar todo como pendiente (reenviar)</button>
   </div>
 
   <div class="cfg-box">
     <h3>Código para Apps Script</h3>
-    <pre style="background:var(--bg);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#7ee787;line-height:1.6;white-space:pre-wrap;">function doGet(e) {
+    <pre style="background:var(--bg);padding:14px;border-radius:8px;font-size:11px;overflow-x:auto;color:#7ee787;line-height:1.6;white-space:pre-wrap;">// ID de tu planilla (lo que va entre /d/ y /edit en la URL)
+var SHEET_ID = "1sO4FZZo4W1c3DK8rIzWhl3Rj7uXYOluQqPRNPieeodI";
+var TAB = "Impresoras";
+var HEAD = ["ID","N Inventario","Fecha","Hora","Marca","Modelo",
+  "Ubicacion","Estado","Tipo","Responsable","Observaciones","Dispositivo"];
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
   try {
-    var sheet = SpreadsheetApp
-      .getActiveSpreadsheet()
-      .getSheetByName("Impresoras");
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow(["ID","N Inventario","Fecha","Hora","Marca","Modelo",
-        "Ubicacion","Estado","Tipo","Responsable","Observaciones","Dispositivo"]);
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheet = ss.getSheetByName(TAB) || ss.insertSheet(TAB);
+    if (sheet.getLastRow() === 0) sheet.appendRow(HEAD);
+    var p = (e && e.parameter) || {};
+    if (p.test) return out({ok:true, test:true, hoja:TAB});
+    if (!p.id) return out({ok:false, error:"Falta id"});
+    var fila = [p.id,p.inventario||"",p.fecha||"",p.hora||"",
+      p.marca||"",p.modelo||"",p.ubicacion||"",p.estado||"",p.tipo||"",
+      p.responsable||"",p.obs||"",p.device||"App"];
+    // Si el ID ya existe, actualiza la fila en vez de duplicarla
+    var ids = sheet.getRange(1,1,sheet.getLastRow(),1).getValues();
+    for (var i = 1; i &lt; ids.length; i++) {
+      if (String(ids[i][0]) === String(p.id)) {
+        sheet.getRange(i+1,1,1,fila.length).setValues([fila]);
+        return out({ok:true, updated:true});
+      }
     }
-    var p = e.parameter;
-    if (!p.marca || !p.modelo || !p.ubicacion) {
-      return ContentService
-        .createTextOutput(JSON.stringify({ok:false,error:"Faltan campos"}))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    sheet.appendRow([p.id||'',p.inventario||'',p.fecha||'',p.hora||'',
-      p.marca||'',p.modelo||'',p.ubicacion||'',p.estado||'',p.tipo||'',
-      p.responsable||'',p.obs||'',p.device||'App']);
-    return ContentService
-      .createTextOutput(JSON.stringify({ok:true}))
-      .setMimeType(ContentService.MimeType.JSON);
+    sheet.appendRow(fila);
+    return out({ok:true});
   } catch(err) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ok:false,error:err.message}))
-      .setMimeType(ContentService.MimeType.JSON);
+    return out({ok:false, error:err.message});
   }
 }</pre>
   </div>
@@ -454,9 +465,12 @@ function saveDB(d) { localStorage.setItem(DB_KEY,  JSON.stringify(d)); }
 function loadCfg() { try { return JSON.parse(localStorage.getItem(CFG_KEY) || '{}');  } catch { return {}; } }
 function saveCfg(c){ localStorage.setItem(CFG_KEY, JSON.stringify(c)); }
 
+const DEFAULT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwR5SJhzLYmngwVgry2_pCc2OgEjB7ND986j21fLpK20o20E-iFh9DpwpOtTs1IQhl7/exec';
 window.addEventListener('DOMContentLoaded', () => {
-  const cfg = loadCfg();
+  let cfg = loadCfg();
+  if (!cfg.scriptUrl || cfg.scriptUrl === cfg.scriptUrl.toLowerCase()) { cfg = {...cfg, scriptUrl: DEFAULT_SCRIPT_URL}; saveCfg(cfg); }
   if (cfg.scriptUrl) document.getElementById('cfg-script-url').value = cfg.scriptUrl;
+  if (cfg.scriptUrl && cfg.scriptUrl === cfg.scriptUrl.toLowerCase()) toast('Vuelve a pegar la URL del script en Config (se guardó dañada)','err');
   renderList();
   renderStats();
   checkOnline();
@@ -573,7 +587,7 @@ function renderList() {
   document.getElementById('count-pill').textContent = db.length;
   const q = (document.getElementById('search-input').value || '').toLowerCase();
   const filtered = db.filter(r =>
-    (r.marca+r.modelo+r.ubicacion+r.responsable).toLowerCase().includes(q)
+    ((r.inventario||'')+' '+r.marca+' '+r.modelo+' '+r.ubicacion+' '+r.responsable).toLowerCase().includes(q)
   ).slice().reverse();
 
   const cont = document.getElementById('printer-list');
@@ -702,7 +716,8 @@ async function syncAll(){
   btn.disabled=true;
   ico.textContent='⏳';
 
-  let ok=0, fail=0;
+  let ok=0, fail=0, lastErr='';
+  const okIds=new Set();
 
   for(let i=0;i<pending.length;i++){
     lbl.textContent=(i+1)+'/'+pending.length;
@@ -723,22 +738,17 @@ async function syncAll(){
     }).toString();
 
     try {
-      // Intentar fetch con cors primero
-      const res = await fetch(url);
-      const json = await res.json();
-      if(json.ok) ok++; else fail++;
+      const res = await fetch(url, {redirect:'follow'});
+      const txt = await res.text();
+      let json=null; try { json=JSON.parse(txt); } catch(_){}
+      if(json && json.ok){ ok++; okIds.add(r.id); }
+      else { fail++; lastErr = json ? (json.error||'respuesta sin ok') : describeBadResponse(res.status, txt); }
     } catch(e1) {
-      // Si falla por CORS usar no-cors como fallback
-      try {
-        await fetch(url, {mode:'no-cors'});
-        ok++; // asumir ok
-      } catch(e2) {
-        fail++;
-      }
+      fail++; lastErr = 'Sin respuesta del script (revisa URL y acceso "Cualquier persona")';
     }
   }
 
-  const updated=db.map(r=>({...r,synced:true}));
+  const updated=db.map(r=> okIds.has(r.id) ? {...r,synced:true} : r);
   saveDB(updated);
   renderList();
   renderStats();
@@ -746,9 +756,9 @@ async function syncAll(){
   if(fail===0){
     toast('☁️ '+ok+' registro(s) enviados a Google Sheets','ok');
   } else if(ok>0){
-    toast(ok+' enviados, '+fail+' fallaron — reintenta','err');
+    toast(ok+' enviados, '+fail+' fallaron: '+lastErr,'err');
   } else {
-    toast('Error conectando con Google Sheets','err');
+    toast('No se envió nada: '+lastErr,'err');
   }
 
   btn.disabled=false;
@@ -761,10 +771,39 @@ async function syncAll(){
 // CONFIG
 // ═══════════════════════════════════════
 function saveConfig(){
-  const url=document.getElementById('cfg-script-url').value.trim().toLowerCase();
-  if(!url.startsWith('https://script.google.com')){ toast('URL invalida','err'); return; }
-  saveCfg({scriptUrl:url});
-  toast('URL guardada correctamente','ok');
+  // OJO: no cambiar mayúsculas/minúsculas, el ID del script las distingue
+  const url=document.getElementById('cfg-script-url').value.trim();
+  if(!/^https:\/\/script\.google\.com\/macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(url)){
+    toast('URL inválida: debe ser https://script.google.com/macros/s/…/exec','err'); return;
+  }
+  saveCfg({...loadCfg(), scriptUrl:url});
+  toast('URL guardada. Prueba la conexión.','ok');
+}
+function describeBadResponse(status, txt){
+  if(/<html/i.test(txt||'')) return 'El script pide iniciar sesión: en "Implementar" pon acceso "Cualquier persona"';
+  if(status===404) return 'Script no encontrado (404): revisa la URL /exec';
+  return 'Respuesta inesperada ('+status+')';
+}
+async function testConnection(){
+  const url=document.getElementById('cfg-script-url').value.trim();
+  if(!url){ toast('Pega primero la URL','err'); return; }
+  if(!navigator.onLine){ toast('Sin internet','err'); return; }
+  toast('Probando…','info');
+  try{
+    const res=await fetch(url+'?test=1',{redirect:'follow'});
+    const txt=await res.text();
+    let json=null; try{ json=JSON.parse(txt); }catch(_){}
+    if(json && json.ok) toast('✅ Conexión OK con la hoja "'+(json.hoja||'')+'"','ok');
+    else toast('❌ '+(json ? (json.error||'error') : describeBadResponse(res.status,txt)),'err');
+  }catch(e){
+    toast('❌ Sin respuesta: revisa la URL y que el acceso sea "Cualquier persona"','err');
+  }
+}
+function markAllPending(){
+  if(!confirm('¿Marcar todos los registros como pendientes para reenviarlos a Google Sheets?')) return;
+  saveDB(loadDB().map(r=>({...r,synced:false})));
+  renderList(); renderStats();
+  toast('Listo. Presiona Sincronizar.','info');
 }
 function clearAllData(){
   if(!confirm('¿Borrar TODOS los registros? No se puede deshacer.')) return;
